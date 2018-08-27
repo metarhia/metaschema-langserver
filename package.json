@@ -30,16 +30,38 @@
     "watch": "tsc -w"
   },
   "dependencies": {
+    "acorn": "^5.7.2",
+    "chalk": "^2.2.0",
+    "commander": "^2.9.0",
+    "esprima": "^4.0.1",
+    "fast-json-patch": "^2.0.2",
+    "glob": "^7.1.1",
+    "lodash": "^4.17.4",
+    "object-hash": "^1.1.8",
+    "rxjs": "^5.5.0",
+    "semaphore-async-await": "^1.5.1",
+    "string-similarity": "^1.1.0",
     "typescript": "2.8.3",
     "vscode-jsonrpc": "^3.3.1",
     "vscode-languageserver": "^4.2.1",
     "vscode-languageserver-types": "^3.0.3"
   },
   "devDependencies": {
+    "@types/acorn": "^4.0.3",
+    "@types/esprima": "^4.0.2",
+    "@types/glob": "^5.0.30",
+    "@types/lodash": "^4.14.76",
+    "@types/node": "^7.0.32",
+    "@types/object-hash": "^1.1.0",
+    "@types/estree": "0.0.39",
     "prettier": "1.12.1",
     "tslint": "^5.8.0",
     "tslint-config-prettier": "^1.14.0",
     "tslint-language-service": "^0.9.6",
     "rxjs-tslint-rules": "^4.7.0"
+  },
+  "bin": {
+    "metaschema-langserver": "./lib/language-server.js",
+    "metaschema-langserver-stdio": "./lib/language-server-stdio.js"
   }
 }
