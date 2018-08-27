@@ -1,0 +1,45 @@
+{
+  "name": "metaschema-langserver",
+  "homepage": "https://github.com/metarhia/metaschema-langserver",
+  "author": "lundibundi",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Implementation of the Language Server Protocol for Metaschema",
+  "keywords": [
+    "LSP",
+    "compiler",
+    "language",
+    "metaschema"
+  ],
+  "bugs": {
+    "url": "https://github.com/metarhia/metaschema-langserver/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/metarhia/metaschema-langserver"
+  },
+  "engines": {
+    "node": ">=10.0.0"
+  },
+  "scripts": {
+    "test": "echo 'No test command'",
+    "lint": "npm run tslint && npm run prettier",
+    "tslint": "tslint -c tslint.json -p .",
+    "prettier": "prettier --list-different --write \"src/**/*.ts\"",
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "dependencies": {
+    "typescript": "2.8.3",
+    "vscode-jsonrpc": "^3.3.1",
+    "vscode-languageserver": "^4.2.1",
+    "vscode-languageserver-types": "^3.0.3"
+  },
+  "devDependencies": {
+    "prettier": "1.12.1",
+    "tslint": "^5.8.0",
+    "tslint-config-prettier": "^1.14.0",
+    "tslint-language-service": "^0.9.6",
+    "rxjs-tslint-rules": "^4.7.0"
+  }
+}
