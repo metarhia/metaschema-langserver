@@ -7,7 +7,7 @@ import { Disposable } from './disposable';
 import { FileSystemUpdater } from './fs';
 import { Logger, NoopLogger } from './logging';
 import { InMemoryFileSystem } from './memfs';
-import { LanguageService, MetaschemaLangService } from './metaschema-lang-service';
+import { LanguageService, MetaschemaLangService } from './service/metaschema-lang-service';
 import {
   isMetaschemaFile,
   isPackageJsonFile,

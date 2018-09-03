@@ -51,14 +51,13 @@
     "@types/esprima": "^4.0.2",
     "@types/glob": "^5.0.30",
     "@types/lodash": "^4.14.76",
-    "@types/node": "^7.0.32",
+    "@types/node": "^7.0.69",
     "@types/object-hash": "^1.1.0",
-    "@types/estree": "0.0.39",
     "prettier": "1.12.1",
+    "rxjs-tslint-rules": "^4.7.0",
     "tslint": "^5.8.0",
     "tslint-config-prettier": "^1.14.0",
-    "tslint-language-service": "^0.9.6",
-    "rxjs-tslint-rules": "^4.7.0"
+    "tslint-language-service": "^0.9.6"
   },
   "bin": {
     "metaschema-langserver": "./lib/language-server.js",

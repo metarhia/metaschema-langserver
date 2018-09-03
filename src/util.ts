@@ -99,23 +99,14 @@ export function isDomainFile(filePath: string): boolean {
   return domainSchemaPattern.test(filePath);
 }
 
-const categoryFieldSchemaPattern = /CategoryField.schema$/;
-export function isCategoryFieldFile(filePath: string): boolean {
+const categoryFieldSchemaPattern = /StructureField.schema$/;
+export function isStructureFieldFile(filePath: string): boolean {
   return categoryFieldSchemaPattern.test(filePath);
 }
 
 const databaseFieldSchemaPattern = /DatabaseField.schema$/;
 export function isDatabaseFieldFile(filePath: string): boolean {
   return databaseFieldSchemaPattern.test(filePath);
-}
-
-export function isServiceMSFile(filePath: string) {
-  return (
-    isDomainsFile(filePath) ||
-    isDomainFile(filePath) ||
-    isCategoryFieldFile(filePath) ||
-    isDatabaseFieldFile(filePath)
-  );
 }
 
 export function isMetaschemaFile(filePath: string) {

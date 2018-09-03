@@ -1,69 +1,29 @@
-import { parseScript, Syntax } from 'esprima';
 import {
   CallExpression,
   Expression,
   ObjectExpression,
+  parseScript,
   Pattern,
   SimpleCallExpression,
-} from 'estree';
+  Syntax,
+} from 'esprima';
 import * as path from 'path';
 import { CompletionItem } from 'vscode-languageserver';
-import { Logger } from './logging';
-import { InMemoryFileSystem } from './memfs';
+import { Logger } from '../logging';
+import { InMemoryFileSystem } from '../memfs';
+import { objectAstToMap } from './ast-utils';
+import { decoratorValidator } from './decorators';
+import {
+  DomainDefinition,
+  EntityDefinition,
+  EntityDefinitionKind,
+  entityDefinitionKinds,
+} from './entities';
 
 export interface LanguageService {
   updateFile(filePath: string): boolean;
 
   getCompletionsAtPosition(fileName: string, line: number, character: number): CompletionItem[];
-}
-
-const enum EntityDefinitionKind {
-  Domains = 'domains',
-  Category = 'Category',
-  DatabaseEntity = 'Database',
-  DomainField = 'DomainField',
-  CategoryField = 'CategoryField',
-  DatabaseField = 'DatabaseField',
-}
-const entityDefinitionKinds = [
-  EntityDefinitionKind.Domains, EntityDefinitionKind.Category,
-  EntityDefinitionKind.DatabaseEntity, EntityDefinitionKind.DomainField,
-  EntityDefinitionKind.CategoryField, EntityDefinitionKind.DatabaseField,
-];
-
-type ValueValidator = (expr: Expression, fields: Map<string, any>) => boolean;
-class EntityDefinition {
-  public name: string;
-
-  public fields: Map<string, any>;
-
-  public validator: ValueValidator | null;
-
-  public ast: ObjectExpression | CallExpression | null = null;
-
-  constructor(name: string,
-              fields: Map<string, any> = new Map(),
-              validator: ValueValidator | null = null) {
-    this.name = name;
-    this.fields = fields;
-    this.validator = validator;
-  }
-}
-
-class DomainDefinition extends EntityDefinition {
-
-  private static stringToValueValidator: Map<string, ValueValidator> = new Map([
-    // general string-with-length validator
-    ['string', (val: Expression, fields: Map<string, any>) => {
-      return val.type === Syntax.Literal &&
-        typeof val.value === 'string' &&
-        (!fields.has('length') || val.value.length < fields.get('length'));
-    }],
-  ]);
-
-  constructor(name: string, fields: Map<string, any> = new Map()) {
-    super(name, fields, DomainDefinition.stringToValueValidator.get(fields.get('type')));
-  }
 }
 
 export class MetaschemaLangService implements LanguageService {
@@ -86,11 +46,9 @@ export class MetaschemaLangService implements LanguageService {
   public updateFile(filePath: string): boolean {
     const name: string = path.basename(filePath);
     let handler = this.entityHandlers.get(name as EntityDefinitionKind);
-    if (!handler) {
-      const kind = filePath.includes('globalstorage') ?
-        EntityDefinitionKind.DatabaseEntity : EntityDefinitionKind.Category;
-      handler = this.entityHandlers.get(kind)!;
-    }
+    // Category handler by default, later on must be modified to take into account
+    //
+    if (!handler) handler = this.entityHandlers.get(EntityDefinitionKind.Category)!;
     return handler(filePath);
   }
 
@@ -103,13 +61,12 @@ export class MetaschemaLangService implements LanguageService {
   private setupItemHandlers() {
     this.entityHandlers.set(EntityDefinitionKind.Category, this.categoryHandler.bind(this));
     this.entityHandlers.set(EntityDefinitionKind.Domains, this.domainsHandler.bind(this));
-    this.entityHandlers.set(EntityDefinitionKind.CategoryField,
-      this.categoryFieldLoader.bind(this));
+    this.entityHandlers.set(EntityDefinitionKind.StructureField,
+      this.StructureFieldLoader.bind(this));
     this.entityHandlers.set(EntityDefinitionKind.DatabaseField,
       this.databaseFieldLoader.bind(this));
     // ignored for now
     this.entityHandlers.set(EntityDefinitionKind.DomainField, () => false);
-    this.entityHandlers.set(EntityDefinitionKind.DatabaseEntity, () => false);
   }
 
   private categoryHandler(filePath: string): boolean {
@@ -147,21 +104,21 @@ export class MetaschemaLangService implements LanguageService {
     return this.metaschemaLoader(
       ast,
       EntityDefinitionKind.Domains,
-      (name, fields) => new DomainDefinition(name, fields)
+      (name, ast, fields) => new DomainDefinition(name, ast, fields)
     );
   }
 
   private metaschemaLoader(
     ast: ObjectExpression,
     kind: EntityDefinitionKind,
-    entityFactory: ((...args: any[]) => EntityDefinition | null) | null = null,
-    astHandler: ((ast: Expression | Pattern) => EntityDefinition | null) | null | null = null
+    entityFactory?: ((...args: any[]) => EntityDefinition | null),
+    astHandler?: ((ast: Expression | Pattern) => EntityDefinition | null)
   ): boolean {
     const entities = this.entities.get(kind)!;
     for (const prop of ast.properties) {
       if (prop.key.type !== Syntax.Identifier || !prop.value) continue;
       let entity = null;
-      if (astHandler !== null) {
+      if (astHandler !== undefined) {
         entity = astHandler(prop.value);
       } else {
         let fields = new Map();
@@ -170,20 +127,22 @@ export class MetaschemaLangService implements LanguageService {
           fields = objectAstToMap(prop.value);
         } else if (prop.value.type === Syntax.CallExpression) {
           validator = decoratorValidator(prop.value);
+        } else {
+          continue;
         }
-        entity = entityFactory === null ?
-          new EntityDefinition(prop.key.name, fields, validator) :
-          entityFactory(prop.key.name, fields, validator);
+        entity = entityFactory === undefined ?
+          new EntityDefinition(prop.key.name, prop.value, fields, validator) :
+          entityFactory(prop.key.name, prop.value, fields, validator);
       }
       if (entity !== null) entities.set(entity.name, entity);
     }
     return true;
   }
 
-  private categoryFieldLoader(filePath: string): boolean {
+  private StructureFieldLoader(filePath: string): boolean {
     const ast = readParseTolerant(this.fs, filePath);
     if (!ast || ast.type !== Syntax.ObjectExpression || ast.properties.length === 0) return false;
-    return this.metaschemaLoader(ast, EntityDefinitionKind.CategoryField);
+    return this.metaschemaLoader(ast, EntityDefinitionKind.StructureField);
   }
 
   private databaseFieldLoader(filePath: string): boolean {
@@ -197,7 +156,7 @@ export class MetaschemaLangService implements LanguageService {
 /*
 function filePathToEntityKind(filePath: string): EntityDefinitionKind {
   if (isDomainsFile(filePath)) return EntityDefinitionKind.Domains;
-  if (isCategoryFieldFile(filePath)) return EntityDefinitionKind.CategoryField;
+  if (isStructureFieldFile(filePath)) return EntityDefinitionKind.StructureField;
   if (isDatabaseFieldFile(filePath)) return EntityDefinitionKind.DatabaseField;
   if (isDatabaseFieldFile(filePath)) return EntityDefinitionKind.DatabaseField;
   // TODO: check with PR and update this
@@ -211,39 +170,8 @@ function filePathToEntityKind(filePath: string): EntityDefinitionKind {
 }
 */
 
-function decoratorValidator(decAst: CallExpression): ValueValidator | null {
-  if (decAst.callee.type !== Syntax.Identifier) return null;
-  // only Enum is supported now
-  switch (decAst.callee.name) {
-    case 'Enum': {
-      const args = callParamsAstToSet(decAst);
-      return (expr: Expression): boolean =>
-        expr.type === Syntax.Literal &&
-        expr.value !== null &&
-        expr.value !== undefined &&
-        args.has(expr.value.toString());
-    }
-  }
-  return null;
-}
-
-function objectAstToMap(ast: ObjectExpression): Map<string, any> {
-  const map: Map<string, any> = new Map();
-  for (const prop of ast.properties) {
-    if (prop.key.type === Syntax.Identifier && prop.value && prop.value.type === Syntax.Literal) {
-      map.set(prop.key.name, prop.value.value);
-    }
-  }
-  return map;
-}
-
-function callParamsAstToSet(ast: CallExpression): Set<string> {
-  const set: Set<string> = new Set();
-  for (const arg of ast.arguments) {
-    if (arg.type === Syntax.Identifier) set.add(arg.name);
-    else if (arg.type === Syntax.Literal && arg.value) set.add(arg.value.toString());
-  }
-  return set;
+function entityFromDecorator(decAst: CallExpression): EntityDefinition {
+  throw new Error('unimplemented');
 }
 
 function readParseTolerant(fs: InMemoryFileSystem, filePath: string):
