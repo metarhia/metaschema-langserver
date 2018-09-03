@@ -20,7 +20,7 @@
     "no-shadowed-variable": false,
     "no-unused-variable": false,
     "no-var-requires": false,
-    "no-implicit-dependencies": [true, "dev"],
+    "no-implicit-dependencies": [true, "dev", ["estree"]],
     "object-literal-sort-keys": false,
     "no-object-literal-type-assertion": false,
     "no-use-before-declare": true,

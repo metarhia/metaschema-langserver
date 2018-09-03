@@ -1,4 +1,5 @@
-import { CallExpression, ObjectExpression, Syntax } from 'esprima';
+import { Syntax } from 'esprima';
+import { CallExpression, ObjectExpression } from 'estree';
 
 export function objectAstToMap(ast: ObjectExpression): Map<string, any> {
   const map: Map<string, any> = new Map();

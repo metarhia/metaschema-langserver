@@ -1,18 +1,21 @@
-import { CallExpression, Expression, ObjectExpression, Syntax } from 'esprima';
+import { Syntax } from 'esprima';
+import { CallExpression, Expression, ObjectExpression } from 'estree';
 
 export const enum EntityDefinitionKind {
   Domains = 'domains',
   Category = 'Category',
+  Structure = 'Structure',
   DomainField = 'Domain',
   StructureField = 'StructureField',
   DatabaseField = 'DatabaseField',
 }
-export const entityDefinitionKinds = [
+export const entityDefinitionKinds = new Set([
   EntityDefinitionKind.Domains, EntityDefinitionKind.Category,
   EntityDefinitionKind.DomainField, EntityDefinitionKind.StructureField,
   EntityDefinitionKind.DatabaseField,
-];
+]);
 
+// TODO(lundibundi): change ValueValidator to return [boolean, errorString]
 export type ValueValidator = (expr: Expression, fields: Map<string, any>) => boolean;
 export type AST = ObjectExpression | CallExpression;
 

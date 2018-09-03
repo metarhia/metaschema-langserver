@@ -6,31 +6,14 @@ import { Operation } from 'fast-json-patch';
 import { merge } from 'lodash';
 import { Observable } from 'rxjs';
 import {
-  CodeActionParams,
-  Command,
-  CompletionItemKind,
   CompletionList,
   DidChangeConfigurationParams,
   DidChangeTextDocumentParams,
   DidCloseTextDocumentParams,
   DidOpenTextDocumentParams,
   DidSaveTextDocumentParams,
-  DocumentSymbolParams,
-  ExecuteCommandParams,
-  Hover,
-  InsertTextFormat,
-  Location,
-  MarkedString,
-  ParameterInformation,
-  ReferenceParams,
-  RenameParams,
-  SignatureHelp,
-  SignatureInformation,
-  SymbolInformation,
   TextDocumentPositionParams,
   TextDocumentSyncKind,
-  TextEdit,
-  WorkspaceEdit,
 } from 'vscode-languageserver';
 import { FileSystem, FileSystemUpdater, LocalFileSystem, RemoteFileSystem } from './fs';
 import { LanguageClient } from './lang-handler';
@@ -39,17 +22,8 @@ import { InMemoryFileSystem } from './memfs';
 import { PackageManager } from './packages';
 import { ProjectManager } from './project-manager';
 import {
-  CompletionItem,
-  DependencyReference,
   InitializeParams,
   InitializeResult,
-  PackageDescriptor,
-  PackageInformation,
-  ReferenceInformation,
-  SymbolDescriptor,
-  SymbolLocationInformation,
-  WorkspaceReferenceParams,
-  WorkspaceSymbolParams,
 } from './request-type';
 import {
   isSchemaFile,
@@ -70,7 +44,6 @@ export type MetaschemaServiceFactory = (
 export interface FormatCodeSettings {
   tabSize: number;
   indentSize: number;
-  newLine: string;
 }
 
 /**
@@ -132,7 +105,6 @@ export class MetaschemaService {
     format: {
       tabSize: 2,
       indentSize: 2,
-      newLine: '\n',
     },
   };
 
@@ -313,6 +285,55 @@ export class MetaschemaService {
         path: '',
         value: { isIncomplete: true, items: [] } as CompletionList,
       } as Operation);
+  }
+
+  /**
+   * The document open notification is sent from the client to the server to signal newly opened
+   * text documents. The document's truth is now managed by the client and the server must not try
+   * to read the document's truth using the document's uri.
+   */
+  public async textDocumentDidOpen(params: DidOpenTextDocumentParams): Promise<void> {
+    const uri = normalizeUri(params.textDocument.uri);
+    this.projectManager.didOpen(uri, params.textDocument.text);
+  }
+
+  /**
+   * The document change notification is sent from the client to the server to signal changes to a
+   * text document. In 2.0 the shape of the params has changed to include proper version numbers
+   * and language ids.
+   */
+  public async textDocumentDidChange(params: DidChangeTextDocumentParams): Promise<void> {
+    const uri = normalizeUri(params.textDocument.uri);
+    if (params.contentChanges.some(change => !!change.range || !!change.rangeLength)) {
+      throw new Error(
+        'incremental updates in textDocument/didChange not supported for file ' + uri
+      );
+    }
+    const change = params.contentChanges[params.contentChanges.length - 1];
+    if (!change || !change.text) {
+      return;
+    }
+    this.projectManager.didChange(uri, change.text);
+  }
+
+  /**
+   * The document save notification is sent from the client to the server when the document was
+   * saved in the client.
+   */
+  public async textDocumentDidSave(params: DidSaveTextDocumentParams): Promise<void> {
+    const uri = normalizeUri(params.textDocument.uri);
+    this.projectManager.didSave(uri);
+  }
+
+  /**
+   * The document close notification is sent from the client to the server when the document got
+   * closed in the client. The document's truth now exists where the document's uri points to
+   * (e.g. if the document's uri is a file uri the truth now exists on disk).
+   */
+  public async textDocumentDidClose(params: DidCloseTextDocumentParams): Promise<void> {
+    const uri = normalizeUri(params.textDocument.uri);
+    this.projectManager.didClose(uri);
+    this.client.textDocumentPublishDiagnostics({ uri, diagnostics: [] });
   }
 
   /**

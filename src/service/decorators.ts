@@ -1,4 +1,5 @@
-import { Syntax, CallExpression, Expression } from 'esprima';
+import { Syntax } from 'esprima';
+import { CallExpression, Expression } from 'estree';
 import { callParamsAstToSet } from './ast-utils';
 import { ValueValidator } from './entities';
 
@@ -82,6 +83,13 @@ export function decoratorValidator(decAst: CallExpression): ValueValidator | nul
       // (it will not check that the category is valid)
       expr.type === Syntax.Literal && expr.value !== null && expr.value !== undefined;
   }
-  // TODO(lundibundi): Add Validate handler that will parse and return an inherent lambda
+  if (isValidateDecorator(decoratorName as Decorator)) {
+    if (decAst.arguments.length === 0 ||
+        decAst.arguments[0].type !== Syntax.ArrowFunctionExpression) {
+      return null;
+    }
+    const arrowFuncRange = decAst.arguments[0].range;
+    // TODO(lundibundi): extract and eval the function and use it to validate the data
+  }
   return null;
 }
