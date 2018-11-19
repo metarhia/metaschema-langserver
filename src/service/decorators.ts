@@ -1,12 +1,13 @@
 import { Syntax } from 'esprima';
 import { CallExpression, Expression } from 'estree';
 import { callParamsAstToSet } from './ast-utils';
-import { ValueValidator } from './entities';
+import { AnyValidator } from './entities';
 
 export const enum Decorator {
   // Value decorators
   Flags = 'Flags',
   Enum = 'Enum',
+  List = 'List',
 
   // Relation decorators
   Many = 'Many',
@@ -35,7 +36,9 @@ export function isValueDecorator(decorator: Decorator) {
   return valueDecorators.has(decorator);
 }
 
-export const relationDecorators = new Set([Decorator.Many, Decorator.Master, Decorator.Include]);
+export const relationDecorators = new Set([
+  Decorator.Many, Decorator.Master, Decorator.Include,
+]);
 export function isRelationDecorator(decorator: Decorator) {
   return relationDecorators.has(decorator);
 }
@@ -46,12 +49,8 @@ export function isIndexDecorator(decorator: Decorator) {
 }
 
 export const entityDecorators = new Set([
-  Decorator.Dictionary,
-  Decorator.System,
-  Decorator.Log,
-  Decorator.Local,
-  Decorator.History,
-  Decorator.View,
+  Decorator.Dictionary, Decorator.System, Decorator.Log,
+  Decorator.Local, Decorator.History, Decorator.View,
   Decorator.Memory,
 ]);
 export function isEntityDecorator(decorator: Decorator) {
@@ -68,7 +67,7 @@ export function isValidateDecorator(decorator: Decorator) {
   return decorator === Decorator.Validate;
 }
 
-export function decoratorValidator(decAst: CallExpression): ValueValidator | null {
+export function decoratorValidator(decAst: CallExpression): AnyValidator | null {
   // anything other than Identifier is not supported
   if (decAst.callee.type !== Syntax.Identifier) return null;
   const decoratorName = decAst.callee.name;

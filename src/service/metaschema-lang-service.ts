@@ -8,24 +8,19 @@ import {
 } from 'estree';
 import { EventEmitter } from 'events';
 import * as path from 'path';
-import {
-  CompletionItem,
-  Diagnostic,
-  DiagnosticSeverity,
-  Position,
-  Range,
-} from 'vscode-languageserver';
+import { CompletionItem, Diagnostic, Position, Range } from 'vscode-languageserver';
 import { Logger } from '../logging';
 import { InMemoryFileSystem } from '../memfs';
 import { path2uri } from '../util';
 import { objectAstToMap } from './ast-utils';
 import { decoratorValidator } from './decorators';
+import { DiagnosticError } from './diagnostic-errors';
 import {
+  AnyValidator,
   DomainDefinition,
   EntityDefinition,
   EntityDefinitionKind,
   entityDefinitionKinds,
-  ValueValidator,
 } from './entities';
 
 export interface CustomPosition extends Position {
@@ -43,8 +38,9 @@ export interface LanguageService {
   getCompletionsAtPosition(fileName: string, line: number, character: number): CompletionItem[];
 }
 
+export type EntityMap = Map<EntityDefinitionKind, Map<string, EntityDefinition>>;
 export class MetaschemaLangService extends EventEmitter implements LanguageService {
-  private entities: Map<EntityDefinitionKind, Map<string, EntityDefinition>>;
+  private entities: EntityMap;
 
   private entityHandlers: Map<EntityDefinitionKind, (filePath: string) => boolean>;
 
@@ -80,7 +76,7 @@ export class MetaschemaLangService extends EventEmitter implements LanguageServi
     this.entityHandlers.set(EntityDefinitionKind.Domains, this.domainsHandler.bind(this));
     this.entityHandlers.set(
       EntityDefinitionKind.StructureField,
-      this.StructureFieldLoader.bind(this)
+      this.structureFieldLoader.bind(this)
     );
     this.entityHandlers.set(
       EntityDefinitionKind.DatabaseField,
@@ -162,7 +158,7 @@ export class MetaschemaLangService extends EventEmitter implements LanguageServi
     return true;
   }
 
-  private StructureFieldLoader(filePath: string): boolean {
+  private structureFieldLoader(filePath: string): boolean {
     const ast = readParseTolerant(this.fs, filePath);
     if (!ast || ast.type !== Syntax.ObjectExpression || ast.properties.length === 0) return false;
     return this.metaschemaLoader(ast, EntityDefinitionKind.StructureField);
@@ -177,17 +173,15 @@ export class MetaschemaLangService extends EventEmitter implements LanguageServi
   private emitDiagnostic(
     filePath: string,
     absolutePosition: AbsolutePosition,
-    message: string,
-    severity: DiagnosticSeverity = DiagnosticSeverity.Warning,
-    code?: number | string,
-    source?: string
+    err: DiagnosticError
   ): void {
-    const range = this.absoluteRangeToLineRange(filePath, absolutePosition);
-    if (!range) return;
+    let range = this.absoluteRangeToLineRange(filePath, absolutePosition);
+    if (!range) {
+      this.logger.warn('Cannot generate range for diagnostic, defaulting to {0, 0}');
+      range = { start: 0, end: 0 };
+    }
     const uri = path2uri(filePath);
-    const diagnostic: Diagnostic = { range, severity, message };
-    if (code) diagnostic.code = code;
-    if (source) diagnostic.source = source;
+    const diagnostic: Diagnostic = { range, ...err };
     this.emit('diagnostic', uri, diagnostic);
   }
 
@@ -269,7 +263,7 @@ function filePathToEntityKind(filePath: string): EntityDefinitionKind {
   */
 }
 
-function domainValidator(): ValueValidator {
+function domainValidator(): AnyValidator {
   return (expr: Expression, fields: Map<string, any>): boolean => {
     if (expr.type !== Syntax.Literal || !expr.value) return false;
     const domain = fields.get('type');
