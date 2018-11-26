@@ -53,10 +53,10 @@ export class DomainDefinition extends EntityDefinition {
         return [createError('Type must be string')];
       }
       if (typeof val.value !== 'string') {
-        return [''];
+        return [];
       }
       if (fields.get('length') !== undefined && val.value.length > fields.get('length')) {
-        return [''];
+        return [];
       }
       return [];
     }],

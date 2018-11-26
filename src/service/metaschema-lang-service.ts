@@ -14,7 +14,7 @@ import { InMemoryFileSystem } from '../memfs';
 import { path2uri } from '../util';
 import { objectAstToMap } from './ast-utils';
 import { decoratorValidator } from './decorators';
-import { DiagnosticError } from './diagnostic-errors';
+import { createError, DiagnosticError } from './diagnostic-errors';
 import {
   AnyValidator,
   DomainDefinition,
@@ -178,7 +178,10 @@ export class MetaschemaLangService extends EventEmitter implements LanguageServi
     let range = this.absoluteRangeToLineRange(filePath, absolutePosition);
     if (!range) {
       this.logger.warn('Cannot generate range for diagnostic, defaulting to {0, 0}');
-      range = { start: 0, end: 0 };
+      range = {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 }
+      };
     }
     const uri = path2uri(filePath);
     const diagnostic: Diagnostic = { range, ...err };
@@ -264,13 +267,21 @@ function filePathToEntityKind(filePath: string): EntityDefinitionKind {
 }
 
 function domainValidator(): AnyValidator {
-  return (expr: Expression, fields: Map<string, any>): boolean => {
-    if (expr.type !== Syntax.Literal || !expr.value) return false;
+  return (expr: Expression, fields: Map<string, any>): DiagnosticError[] => {
+    if (expr.type !== Syntax.Literal) {
+      return [createError('Type must be Literal')];
+    }
+    if (expr.value === null) {
+      return [createError('Type must not be null')];
+    }
+    if (expr.value === undefined) {
+      return [createError('Type must not be undefined')];
+    }
     const domain = fields.get('type');
     // no domain, just return ok
-    if (!domain) return true;
+    if (!domain) return [];
     // TODO(lundibundi) refactor ValueValidator, need domain from LangService
-    return true;
+    return [];
   };
 }
 
