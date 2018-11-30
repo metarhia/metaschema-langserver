@@ -37,6 +37,7 @@ const options: MetaschemaServiceOptions &
   RegisterLanguageHandlerOptions = {
   logMessages: program.trace,
   logger,
+  strict: false,
 };
 
 const messageEmitter = new MessageEmitter(process.stdin, options);

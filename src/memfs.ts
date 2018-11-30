@@ -50,7 +50,7 @@ export class InMemoryFileSystem extends EventEmitter
 
   constructor(
     path: string,
-    private fileFilter: (uri: string) => void = () => true,
+    private fileFilter: (uri: string) => boolean = () => true,
     private logger: Logger = new NoopLogger()
   ) {
     super();
@@ -194,6 +194,13 @@ export class InMemoryFileSystem extends EventEmitter
    */
   public didChange(uri: string, text: string): void {
     this.overlay.set(uri, text);
+  }
+
+  /**
+  * Called by TS service to scan virtual directory when TS service looks for source files that belong to a project
+  */
+  public readDirectory(rootDir: string, extensions: string[], excludes: string[], includes: string[]): string[] {
+      return [];
   }
 
   public trace(message: string): void {

@@ -2,6 +2,12 @@ import { Syntax } from 'esprima';
 import { CallExpression, Expression } from 'estree';
 import { callParamsAstToSet } from './ast-utils';
 import { AnyValidator } from './entities';
+import {
+  createError,
+  DiagnosticError,
+  nonNullUndefinedLiteral
+} from './diagnostic-errors';
+
 
 export const enum Decorator {
   // Value decorators
@@ -73,14 +79,24 @@ export function decoratorValidator(decAst: CallExpression): AnyValidator | null 
   const decoratorName = decAst.callee.name;
   if (decoratorName === Decorator.Enum) {
     const args = callParamsAstToSet(decAst);
-    return (expr: Expression): boolean =>
-      expr.type === Syntax.Literal && expr.value != null && args.has(expr.value.toString());
+    return (expr: Expression): DiagnosticError[] => {
+      if (expr.type !== Syntax.Literal) {
+        return [createError(`Not a valid value for Enum '${Syntax.Literal}'`)];
+      }
+      if (expr.value === null) {
+        return [createError('Type must not be null')];
+      }
+      if (expr.value === undefined) {
+        return [createError('Type must not be undefined')];
+      }
+      if (!args.has(expr.value.toString())) {
+        return [createError('Args must have value')];
+      }
+      return [];
+    }
   }
   if (isCategoryDecorator(decoratorName as Decorator)) {
-    return (expr: Expression): boolean =>
-      // this only verifies the usage, not correctness
-      // (it will not check that the category is valid)
-      expr.type === Syntax.Literal && expr.value !== null && expr.value !== undefined;
+    return nonNullUndefinedLiteral;
   }
   if (isValidateDecorator(decoratorName as Decorator)) {
     if (decAst.arguments.length === 0 ||
