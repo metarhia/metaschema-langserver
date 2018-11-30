@@ -14,7 +14,11 @@ import { InMemoryFileSystem } from '../memfs';
 import { path2uri } from '../util';
 import { objectAstToMap } from './ast-utils';
 import { decoratorValidator } from './decorators';
-import { createError, DiagnosticError } from './diagnostic-errors';
+import {
+  createError,
+  DiagnosticError,
+  nonNullUndefinedLiteral
+} from './diagnostic-errors';
 import {
   AnyValidator,
   DomainDefinition,
@@ -268,15 +272,9 @@ function filePathToEntityKind(filePath: string): EntityDefinitionKind {
 
 function domainValidator(): AnyValidator {
   return (expr: Expression, fields: Map<string, any>): DiagnosticError[] => {
-    if (expr.type !== Syntax.Literal) {
-      return [createError('Type must be Literal')];
-    }
-    if (expr.value === null) {
-      return [createError('Type must not be null')];
-    }
-    if (expr.value === undefined) {
-      return [createError('Type must not be undefined')];
-    }
+    const errors = nonNullUndefinedLiteral(expr);
+    if (errors.length !== 0) return errors;
+
     const domain = fields.get('type');
     // no domain, just return ok
     if (!domain) return [];
